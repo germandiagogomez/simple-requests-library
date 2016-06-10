@@ -3,7 +3,8 @@ CXX = clang++
 CXXFLAGS = -std=c++14 -Ideps/include
 
 LIBSPREFIX = deps/lib
-LIBS = $(LIBSPREFIX)/libboost_system.a $(LIBSPREFIX)/libdocopt_s.a
+LIBS = $(LIBSPREFIX)/libboost_system.a $(LIBSPREFIX)/libdocopt_s.a \
+$(LIBSPREFIX)/libboost_coroutine.a $(LIBSPREFIX)/libboost_context.a
 
 EXE = get_urls
 
