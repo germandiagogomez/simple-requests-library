@@ -17,12 +17,14 @@ static const char USAGE[] =
 
     Usage:
       get_urls <urls>... [--async]
-      get_urls --urlsfile=<urlsfile> [--async]
+      get_urls -n=<numrequests> --urlsfile=<urlsfile> [--async]
       get_urls (-h | --help)
 
     Options:
       -h --help             Show this screen.
       --urlsfile=<urlsfile> Get files from an urls file.
+      --async               Use asynchronous requests
+      -n=<numrequests>      Number of urls to retrieve
 )";
 
 
@@ -38,10 +40,10 @@ vector<unsigned char> get_url(ba::io_service & i, boost::string_ref url) {
     + urlstr + "\r\nConnection: close\r\n\r\n";
   ba::write(socket, ba::buffer(request), ba::transfer_all());
 
-  std::vector<unsigned char> vec(1024 * 1024);
+  vector<unsigned char> vec(1024 * 1024);
   boost::system::error_code ec{};
-  std::size_t write_pos{0u};
-  std::size_t bytes_read{0u};
+  size_t write_pos{0u};
+  size_t bytes_read{0u};
   while (!ec) {
     bytes_read = ba::read(socket, ba::buffer(&vec[write_pos],
                                              vec.size() - write_pos), ec);
@@ -54,12 +56,12 @@ vector<unsigned char> get_url(ba::io_service & i, boost::string_ref url) {
     return vec;
   }
   else
-    throw std::runtime_error("Error reading");
+    throw runtime_error("Error reading");
 }
 
 
-std::future<vector<unsigned char>> get_url_async(ba::io_service & i, boost::string_ref url) {
-  std::promise<vector<unsigned char>> result_promise;
+future<vector<unsigned char>> get_url_async(ba::io_service & i, boost::string_ref url) {
+  promise<vector<unsigned char>> result_promise;
   auto result = result_promise.get_future();
 
   boost::asio::spawn
@@ -79,10 +81,10 @@ std::future<vector<unsigned char>> get_url_async(ba::io_service & i, boost::stri
 
         ba::async_write(socket, ba::buffer(request), ba::transfer_all(), yield);
 
-        std::vector<unsigned char> vec(1024 * 1024);
+        vector<unsigned char> vec(1024 * 1024);
         boost::system::error_code ec{};
-        std::size_t write_pos{0u};
-        std::size_t bytes_read{0u};
+        size_t write_pos{0u};
+        size_t bytes_read{0u};
         while (!ec) {
           bytes_read = ba::async_read(socket,
                                       ba::buffer(&vec[write_pos],
@@ -97,9 +99,9 @@ std::future<vector<unsigned char>> get_url_async(ba::io_service & i, boost::stri
           result_promise.set_value(move(vec));
         }
         else
-          throw std::runtime_error("Error reading");
+          throw runtime_error("Error reading");
       }
-      catch (std::exception const & e) {
+      catch (exception const & e) {
         cerr << e.what() << '\n';
       }
     });
@@ -107,15 +109,18 @@ std::future<vector<unsigned char>> get_url_async(ba::io_service & i, boost::stri
 }
 
 
-vector<string> const get_urls_strings(string const & filename) {
+vector<string> const get_urls_strings(string const & filename,
+                                      size_t howMany) {
   ifstream stream(filename);
-  if (!stream) throw std::logic_error("File " + filename + " not found.");
+  if (!stream) throw logic_error("File " + filename + " not found.");
 
   vector<string> result;
   result.reserve(10);
   string url;
-  while (stream >> url) {
+  size_t retrieved = 0;
+  while (stream >> url && retrieved < howMany) {
     result.push_back(url);
+    ++retrieved;
   }
   return result;
 }
@@ -149,13 +154,14 @@ vector<vector<unsigned char>> get_all_urls(vector<string> const & urls) {
 
 
 int main(int argc, char * argv[]) {
-  std::map<std::string, docopt::value> args
+  map<string, docopt::value> args
     = docopt::docopt(USAGE,
                      { argv + 1, argv + argc },
                      true,
                      "Get urls");
   vector<string> urls;
-
+  size_t howManyUrls = 1;
+  
   for (auto const & arg: args) {
     if (arg.first == "<urls>" && arg.second) {
       for (auto & url : arg.second.asStringList()) {
@@ -163,7 +169,10 @@ int main(int argc, char * argv[]) {
       }
     }
     if (arg.first == "--urlsfile" && arg.second) {
-      urls = get_urls_strings(arg.second.asString());
+        urls = get_urls_strings(arg.second.asString(), howManyUrls);
+    }
+    if (arg.first == "-n" && arg.second) {
+        howManyUrls = arg.second.asLong();
     }
   }
 
