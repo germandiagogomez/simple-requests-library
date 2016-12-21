@@ -28,8 +28,8 @@ static const char USAGE[] =
 )";
 
 
-vector<unsigned char> get_url(ba::io_service & i, boost::string_ref url) {
-  ip::tcp::socket socket(i);
+vector<unsigned char> get_url(ba::io_service & io, boost::string_ref url) {
+  ip::tcp::socket socket(io);
   string const urlstr(url.begin(), url.end());
 
   ip::tcp::resolver::query q(urlstr, "http");

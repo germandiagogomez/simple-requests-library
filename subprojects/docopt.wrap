@@ -1,0 +1,5 @@
+[wrap-git]
+directory=docopt
+url=https://github.com/docopt/docopt.cpp.git
+revision=head
+
