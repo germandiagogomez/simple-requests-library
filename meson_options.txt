@@ -1,0 +1,4 @@
+option('network-library', type : 'combo', choices : ['boost_asio', 'standalone_asio'],
+value: 'boost_asio', description : 'Network library dependency')
+option('string-view-library', type : 'combo', choices : ['boost_string_view', 'std_string_view'],
+value: 'boost_string_view', description : 'String view dependency')
