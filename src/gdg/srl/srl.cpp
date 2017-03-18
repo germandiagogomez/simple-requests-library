@@ -1,4 +1,4 @@
-#include "gdg/srl/get_url.hpp"
+#include "gdg/srl/srl.hpp"
 #include <unordered_map>
 #include <boost/regex.hpp>
 #include <regex>
@@ -237,7 +237,6 @@ future<vector<byte_t>> async_get_url(string_view_t url,
                 string httpVersion, retCode, retString;
                 response >> httpVersion >> retCode;
                 getline(response, retString);
-                std::cout << retCode << ", " << retString << std::endl;
                 if (retCode[0] == '4') {
                     throw runtime_error("URL returned code " + retCode + ". Closing...");
                 }
@@ -257,12 +256,10 @@ future<vector<byte_t>> async_get_url(string_view_t url,
 
 
                 if (readInChunks) {
-                    std::cout << "Read in chunks\n";
                     result_promise.set_value(async_read_body(socket, buf, readInChunks, yield,
                                                              timeOut));
                 }
                 else {
-                    std::cout << "Read at once\n";
                     auto itContentLength = headers.find("content-length");
                     if (itContentLength == headers.end())
                         throw runtime_error
@@ -293,7 +290,6 @@ TEST_CASE("async get url") {
     net::io_service::work wk{svc};
     thread t([&svc] { svc.run(); });
     CHECK_NOTHROW((async_get_url("www.publico.es", 10s, svc).get()));
-
     CHECK_NOTHROW((async_get_url("www.elmundo.es", 10s, svc).get()));
     svc.stop();
     t.join();

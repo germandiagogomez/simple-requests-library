@@ -15,8 +15,8 @@ doctest_dep = declare_dependency(include_directories : doctest_includes)
 
 
 executable('simple_requests', ['src/gdg/srl/alias.hpp',
-                               'src/gdg/srl/get_url.cpp',
-                               'src/gdg/srl/get_url.hpp'],
+                               'src/gdg/srl/srl.cpp',
+                               'src/gdg/srl/srl.hpp'],
            dependencies :
            [network_dep,
             doctest_dep],
