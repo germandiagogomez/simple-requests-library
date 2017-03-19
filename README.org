@@ -1,8 +1,9 @@
 * Simple requests library
 
-  Simple requests library is a simple C++14 library for http requests.
+  Simple requests library is a simple C++14 library for http get
+  requests.
   Currently it is so simple that it just includes a single call
-  and an auxiliar call for the events loop, that can be ignored
+  and an auxiliar call that can be ignored
   if you do not want to use your own asio loop.
 
   Usage example:
@@ -12,21 +13,30 @@
   #include <iostream>
   #include <cassert>
 
-
   namespace srl = gdg::srl;
   using namespace std;
 
   int main() {
-      pair<int, future<vector<byte_t>> response =
-      //Optionally you can specify a timeout and in which
-      async_http_get("www.boost.org", "/LiCENSE_1_0.txt");
+      try {
+          pair<int, future<vector<byte_t>> response =
+               async_http_get(
+                   "www.boost.org",
+                   "/LiCENSE_1_0.txt"
+                   /*, 5s */      //Optionally you can specify a timeout
+                   /*, my_loop */ //and an io_service
+                   );
 
-      response.get();
-      assert(response.first == 200);
+          response.get();
+          assert(response.first == 200);
 
-      for (auto c : response)
-          cout << c;
-      cout << endl;
+          for (auto c : response)
+              cout << c;
+          cout << endl;
+      }
+      catch (timeout_exception) {
+          cout << "Timeout";
+          return -1;
+      }
   }
 #+END_src
 
@@ -82,10 +92,11 @@ meaning they could be not deterministic and fail.
 ninja functional-tests
 ./functional-tests
 #+END_src
+
 ** Roadmap
 - support http other than 1.1
-- make library ready to able to switch from boost dependency
+- make library ready to able to be used without boost dependency
   through asio standalone/network ts and migrating string_view
   to std::string_view (partially done).
-- replace coroutines by futures?? (removed dependency on boost coroutines)
+- replace coroutines by futures in the implementation (to get rid of boost)
 - lower the C++ version to C++11 (but depend on boost in this case)
