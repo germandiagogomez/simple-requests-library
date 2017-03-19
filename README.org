@@ -96,9 +96,9 @@ ninja functional-tests
 #+END_src
 
 ** Roadmap
-- support http other than 1.1
-- make library ready to able to be used without boost dependency
-  through asio standalone/network ts and migrating string_view
+- support http other than 1.1.
+- make library ready to able to be used without boost dependency.
+  through asio standalone/network ts and migrating string_view.
   to std::string_view (partially done).
-- replace coroutines by futures in the implementation (to get rid of boost)
-- lower the C++ version to C++11 (but depend on boost in this case)
+- replace coroutines by futures in the implementation (to get rid of boost).
+- lower the C++ version to C++11.
