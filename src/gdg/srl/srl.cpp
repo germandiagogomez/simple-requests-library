@@ -1,11 +1,13 @@
 #include "gdg/srl/srl.hpp"
+#include "gdg/srl/exceptions.hpp"
 #include <unordered_map>
 #include <boost/regex.hpp>
 #include <regex>
-#include <iostream>
+
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
+
 
 using namespace std;
 using namespace gdg::srl;
@@ -13,17 +15,21 @@ using namespace gdg::srl;
 namespace {
 
 
-string build_request(gdg::srl::string_view_t url) {
-    return "GET / HTTP/1.1\r\nHost: " + string(url) + "\r\nConnection: close\r\n\r\n";
+string build_request(gdg::srl::string_view_t host, gdg::srl::string_view_t resource) {
+    return "GET " + string(resource) + " HTTP/1.1\r\nHost: " + string(host)
+        + "\r\nConnection: close\r\n\r\n";
 }
 
 
 TEST_CASE("build request") {
-    CHECK(build_request("www.vandal.net") ==
+    CHECK(build_request("www.vandal.net", "/") ==
           "GET / HTTP/1.1\r\nHost: www.vandal.net\r\nConnection: close\r\n\r\n");
 
-    CHECK(build_request("www.publico.es") ==
+    CHECK(build_request("www.publico.es", "/") ==
           "GET / HTTP/1.1\r\nHost: www.publico.es\r\nConnection: close\r\n\r\n");
+
+    CHECK(build_request("www.boost.org", "/LICENSE_1_0.txt") ==
+          "GET /LICENSE_1_0.txt HTTP/1.1\r\nHost: www.boost.org\r\nConnection: close\r\n\r\n");
 
 }
 
@@ -33,21 +39,23 @@ vector<gdg::srl::byte_t> async_read_fixed_body(gdg::srl::net::ip::tcp::socket & 
                                                size_t sizeInBytes,
                                                gdg::srl::net::yield_context yield) {
     boost::system::error_code ec{};
+
     auto bytesRead =
         net::async_read
         (s, buf,
          net::transfer_exactly(sizeInBytes),
          yield[ec]);
-
     if (ec && ec != net::error::eof)
         throw boost::system::system_error{ec};
+
     istream is(&buf);
-    vector<byte_t> result(bytesRead);
+    is >> noskipws;
+    vector<byte_t> result(sizeInBytes);
 
     std::size_t i = 0;
-    for (auto it = istream_iterator<byte_t>();
-         it != istream_iterator<byte_t>{}; ++it)
-        result[i++] = *it;
+    copy_n(istream_iterator<byte_t>{is},
+           sizeInBytes, result.begin());
+
     return result;
 }
 
@@ -119,19 +127,7 @@ vector<byte_t> async_read_body(net::ip::tcp::socket & s,
                                net::streambuf & buf,
                                bool readInChunks,
                                net::yield_context yield,
-                               chrono::steady_clock::duration timeout = 10s,
                                int contentLength = 0) {
-    atomic<bool> operationTimeout{false};
-    net::steady_timer timer(s.get_io_service());
-    timer.expires_from_now(timeout);
-    timer.async_wait
-        ([&s, &timeout]
-         (boost::system::error_code const & e) {
-            if (e != net::error::operation_aborted) {
-                s.close();
-            }
-        });
-
     vector<byte_t> result;
     if (!readInChunks) {
         result = async_read_fixed_body(s, buf, contentLength, yield);
@@ -139,7 +135,6 @@ vector<byte_t> async_read_body(net::ip::tcp::socket & s,
     else {
         result = async_read_chunked_body(s, buf, yield);
     }
-    timer.cancel();
     return result;
 }
 
@@ -193,56 +188,64 @@ namespace srl {
 net::io_service & get_default_loop() {
     static net::io_service & svc =
         []() -> net::io_service & {
-        static net::io_service io;
+        static auto io = std::make_unique<net::io_service>();
         shared_ptr<future<void>> f = make_shared<future<void>>();
 
         *f = std::async(std::launch::async,
                         [f] {
-                            io.run();
+                            io->run();
                         });
-        return io;
+        return *io;
     }();
-
-
     return svc;
 }
 
 
-future<vector<byte_t>> async_get_url(string_view_t url,
-                                     chrono::steady_clock::duration timeOut,
-                                     net::io_service & i) {
-
-    promise<vector<unsigned char>> result_promise;
+future<pair<int, vector<byte_t>>> async_http_get(string_view_t host,
+                                                 string_view_t resource,
+                                                 chrono::steady_clock::duration timeOut,
+                                                 net::io_service & i) {
+    promise<pair<int, vector<byte_t>>> result_promise;
     auto result = result_promise.get_future();
-
     net::spawn
         (i,
-         [&i, urlstr=string(url), timeOut = timeOut,
-          result_promise = move(result_promise), url]
+         [&i, hoststr=string(host), timeOut = timeOut,
+          result_promise = move(result_promise), host, resource]
          (net::yield_context yield) mutable {
             ip::tcp::socket socket(i);
 
             try {
-                ip::tcp::resolver::query q(urlstr, "http");
+                atomic<bool> timeoutReached{false};
+                net::steady_timer timer(i);
+                timer.expires_from_now(timeOut);
+                timer.async_wait([&timeoutReached](auto ec) {
+                        if (ec != net::error::operation_aborted) {
+                            timeoutReached = true;
+                        }
+                    });
+                ip::tcp::resolver::query q(hoststr, "http");
                 ip::tcp::resolver resolver(i);
                 net::async_connect(socket, resolver.async_resolve(q, yield), yield);
-                string const request = build_request(url);
+                string const request = build_request(host, resource);
+
 
                 net::async_write(socket, net::buffer(request), yield);
                 net::streambuf buf;
+
                 net::async_read_until(socket, buf, "\r\n\r\n",
                                       yield);
 
+                if (timeoutReached) {
+                    result_promise.set_exception(make_exception_ptr(timeout_exception{}));
+                    return;
+                }
                 istream response(&buf);
                 string httpVersion, retCode, retString;
                 response >> httpVersion >> retCode;
                 getline(response, retString);
-                if (retCode[0] == '4') {
-                    throw runtime_error("URL returned code " + retCode + ". Closing...");
-                }
-                else if (retCode[0] == '3') {
-                    throw runtime_error("URL returned code " + retCode + ". Closing...");
-                }
+                auto retCodeInt = std::stoi(retCode);
+                if (retCodeInt != 200)
+                    throw bad_request_exception(retCodeInt);
                 string line;
                 getline(response, line);
 
@@ -256,8 +259,12 @@ future<vector<byte_t>> async_get_url(string_view_t url,
 
 
                 if (readInChunks) {
-                    result_promise.set_value(async_read_body(socket, buf, readInChunks, yield,
-                                                             timeOut));
+                    if (timeoutReached) {
+                        result_promise.set_exception(make_exception_ptr(timeout_exception{}));
+                        return;
+                    }
+                    result_promise.set_value({200, async_read_body(socket, buf, readInChunks, yield)});
+
                 }
                 else {
                     auto itContentLength = headers.find("content-length");
@@ -266,15 +273,21 @@ future<vector<byte_t>> async_get_url(string_view_t url,
                             ("Cannot parse HTTP response -> "
                              "not supported: missing both content-length and transfer-encoding headers");
                     if (stoi(itContentLength->second) == 0) {
-                        result_promise.set_value({});
+                        result_promise.set_value({200, {}});
                     }
                     else {
+                        if (timeoutReached) {
+                            result_promise.set_exception(make_exception_ptr(timeout_exception{}));
+                            return;
+                        }
                         result_promise.set_value
-                            (async_read_body(socket, buf, readInChunks, yield,
-                                             timeOut, std::stoi(itContentLength->second)));
+                            ({200,async_read_body(socket, buf, readInChunks, yield,
+                                                  std::stoi(itContentLength->second))});
                     }
                 }
-
+                timer.cancel();
+                if (timeoutReached)
+                    result_promise.set_exception(make_exception_ptr(timeout_exception{}));
             }
             catch (...) {
                 socket.close();
@@ -285,37 +298,35 @@ future<vector<byte_t>> async_get_url(string_view_t url,
 }
 
 
-TEST_CASE("async get url") {
+TEST_CASE("async http get without timeout") {
     net::io_service svc;
     net::io_service::work wk{svc};
     thread t([&svc] { svc.run(); });
-    CHECK_NOTHROW((async_get_url("www.publico.es", 10s, svc).get()));
-    CHECK_NOTHROW((async_get_url("www.elmundo.es", 10s, svc).get()));
+    CHECK_NOTHROW((async_http_get("www.publico.es", "/", 8s, svc).get()));
+    CHECK_NOTHROW((async_http_get("www.elmundo.es", "/", 8s, svc).get()));
+    auto licenseText = async_http_get("www.boost.org",
+                                      "/LICENSE_1_0.txt",
+                                      8s, svc).get();
+    CHECK(licenseText.first == 200);
+    CHECK(licenseText.second.size() == 1338);
+
+    svc.stop();
+    t.join();
+}
+
+TEST_CASE("async http get timeouts") {
+    net::io_service svc;
+    net::io_service::work wk{svc};
+    thread t([&svc] { svc.run(); });
+    CHECK_THROWS_AS(async_http_get("www.boost.org",
+                                      "/LICENSE_1_0.txt",
+                                   1ms, svc).get(),
+        timeout_exception);
     svc.stop();
     t.join();
 }
 
 
-vector<vector<byte_t>> async_get_urls(vector<string> const & urls,
-                                      net::io_service & io) {
-    vector<pair<string, future<vector<unsigned char>>>> tasks;
-    tasks.reserve(urls.size());
-    for (auto const & url : urls) {
-        tasks.push_back({url, async_get_url(url)});
-    }
-
-    vector<vector<byte_t>> urls_contents;
-    //vector<vector<byte_t>> exceptions;    TODO <- accumulate exceptions
-    for (auto & task : tasks) {
-        try {
-            urls_contents.push_back(task.second.get());
-        }
-        catch (exception const & e) {
-            throw; //placeholder
-        }
-    }
-    return urls_contents;
-}
 
 } //namespace srl
 

@@ -9,13 +9,13 @@
 
 namespace gdg {
 namespace srl {
+
 namespace net = boost::asio;
 }
 }
 
 #elif USE_STANDALONE_ASIO
 #include <asio.hpp>
-
 
 namespace gdg {
 namespace srl {
@@ -33,7 +33,7 @@ namespace srl {
 using string_view_t = boost::string_view;
 }
 }
-#elif USE_CPP17_STRING_VIEW
+#elif USE_STD_STRING_VIEW
 #include <string_view>
 
 namespace gdg {
