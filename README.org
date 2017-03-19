@@ -2,9 +2,7 @@
 
   Simple requests library is a simple C++14 library for http get
   requests.
-  Currently it is so simple that it just includes a single call
-  and an auxiliar call that can be ignored
-  if you do not want to use your own asio loop.
+  Currently it is so simple that it just includes a single call.
 
   Usage example:
 
@@ -69,7 +67,7 @@ Assuming you installed homebrew, open a terminal:
 #+BEGIN_src sh
 brew install git python3 boost
 pip3 install meson
-git clone <clone-srl-address>
+git clone https://github.com/germandiagogomez/simple-requests-library.git
 git submodule update --init --recursive
 mkdir build
 export BOOST_ROOT=<your-boost-root>
