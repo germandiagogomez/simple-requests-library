@@ -16,7 +16,7 @@
 
   int main() {
       try {
-          pair<int, future<vector<byte_t>> response =
+          pair<int, future<vector<srl::byte_t>> response =
                async_http_get(
                    "www.boost.org",
                    "/LiCENSE_1_0.txt"
@@ -24,10 +24,10 @@
                    /*, my_loop */ //and an io_service
                    );
 
-          response.get();
-          assert(response.first == 200);
+          auto r = response.get();
+          assert(r.first == 200);
 
-          for (char c : response)
+          for (char c : r.second)
               cout << c;
           cout << endl;
       }
@@ -44,9 +44,13 @@
 
 Currently, the library is fairly simple:
 
+  - single call library, asynchronous via future result.
   - supports only http (no https).
+  - supports timeouts.
+  - http get requests, version 1.1. Supports fixed and chunked, but it will only support chunked requests if they do not use any extensions, just plain chunked data (though this could be easily changed).
   - only http 1.1.
   - no redirections. Only will allow 200 return code or will throw =gdg::srl::bad_request_exception=.
+  - depends on boost (this is not a feature, it is a warning :p). I coded the library in a way that the boost dependency can be refactored easily in the future.
 
 * How to use
 
