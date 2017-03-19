@@ -1,0 +1,91 @@
+* Simple requests library
+
+  Simple requests library is a simple C++14 library for http requests.
+  Currently it is so simple that it just includes a single call
+  and an auxiliar call for the events loop, that can be ignored
+  if you do not want to use your own asio loop.
+
+  Usage example:
+
+#+BEGIN_src C++
+  #include "gdg/srl/srl.hpp"
+  #include <iostream>
+  #include <cassert>
+
+
+  namespace srl = gdg::srl;
+  using namespace std;
+
+  int main() {
+      pair<int, future<vector<byte_t>> response =
+      //Optionally you can specify a timeout and in which
+      async_http_get("www.boost.org", "/LiCENSE_1_0.txt");
+
+      response.get();
+      assert(response.first == 200);
+
+      for (auto c : response)
+          cout << c;
+      cout << endl;
+  }
+#+END_src
+
+  The library lives in namespace gdg. These are the initials for
+  my name. The library is nested into srl (simple requests library) namespace.
+
+
+Currently, the library is fairly simple:
+
+  - supports only http (no https).
+  - only http 1.1.
+  - no redirections. Only will allow 200 return code or will throw =gdg::srl::bad_request_exception=.
+
+* How to use
+
+** Dependencies
+The easiest way to install in Mac OS is through a
+package manager. The library depends on boost currently,
+but that dependency might be removed in the future.
+
+You will need:
+
+ - [[https://brew.sh/][homebrew]] (actually optional package manager but highly recommended)
+ - [[https://github.com/mesonbuild/meson/wiki][meson build system]] (used 0.39.1)
+ - an up to date C++14 compiler (tested on clang-700.1.81).
+
+** How to compile and use in Mac OS
+
+Assuming you installed homebrew, open a terminal:
+#+BEGIN_src sh
+brew install git python3 boost
+pip3 install meson
+git clone <clone-srl-address>
+git submodule update --init --recursive
+mkdir build
+export BOOST_ROOT=<your-boost-root>
+cd build
+meson ..
+ninja
+#+END_src
+
+This will leave a static library in your directory
+if everything was ok.
+
+** Run tests
+
+You can compile the =funtional-tests= executable and run it.
+As of now, remember that some tests
+make use of the network and access external resources,
+meaning they could be not deterministic and fail.
+
+#+BEGIN_src sh
+ninja functional-tests
+./functional-tests
+#+END_src
+** Roadmap
+- support http other than 1.1
+- make library ready to able to switch from boost dependency
+  through asio standalone/network ts and migrating string_view
+  to std::string_view (partially done).
+- replace coroutines by futures?? (removed dependency on boost coroutines)
+- lower the C++ version to C++11 (but depend on boost in this case)
