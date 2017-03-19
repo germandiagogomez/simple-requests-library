@@ -65,7 +65,7 @@ You will need:
 
 Assuming you installed homebrew, open a terminal:
 #+BEGIN_src sh
-brew install git python3 boost
+brew install git python3 boost ninja
 pip3 install meson
 git clone https://github.com/germandiagogomez/simple-requests-library.git
 git submodule update --init --recursive
