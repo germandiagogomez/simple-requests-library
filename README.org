@@ -27,7 +27,7 @@
           response.get();
           assert(response.first == 200);
 
-          for (auto c : response)
+          for (char c : response)
               cout << c;
           cout << endl;
       }
