@@ -96,6 +96,16 @@ ninja functional-tests
 ./functional-tests
 #+END_src
 
+** Compile a simple example
+You can run the simple example contained in examples/get_urls.cpp doing this:
+
+#+BEGIN_src sh
+ninja get_urls
+./get_urls
+#+END_src
+
+This should display the boost license that was just retrieved through using GET
+in http.
 ** Roadmap
 - support http other than 1.1.
 - make library ready to able to be used without boost dependency.
