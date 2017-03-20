@@ -2,7 +2,18 @@ language: cpp
 
 compiler: clang
 
+script:
+  - mkdir build
+  - cd build
+  - meson ..
+  - ninja
+  - ninja functional_tests
+  - ./functional_tests
+
 
 install:
   - sudo apt-get install python3
   - sudo apt-get install ninja-build
+  - sudo apt-get install python3-pip
+  - sudo apt-get install libboost-all-dev
+  - pip3 install meson
