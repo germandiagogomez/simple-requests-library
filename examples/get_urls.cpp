@@ -10,11 +10,11 @@ int main() {
     try {
         auto response =
             srl::async_http_get(
+                /*, my_loop */ //Optional custom loop
                  "www.boost.org",
                  "/LICENSE_1_0.txt"
-                 , chrono::seconds(5)      //Optionally you can specify a timeout
-                 /*, my_loop */ //and an io_service
-                 );
+                 , chrono::seconds(5)); //Optionally you can specify a timeout
+
 
         auto r = response.get();
         assert(r.first == 200);
