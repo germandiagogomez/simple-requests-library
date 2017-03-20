@@ -5,4 +5,4 @@ compiler: clang
 
 install:
   - sudo apt-get install python3
-  - sudo apt-get install-build
+  - sudo apt-get install ninja-build
