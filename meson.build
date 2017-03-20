@@ -11,7 +11,7 @@ doctest_includes = include_directories('thirdParty/doctest/')
 doctest_dep = declare_dependency(include_directories : doctest_includes)
 
 
-executable('functional-tests', ['src/gdg/srl/alias.hpp',
+executable('functional_tests', ['src/gdg/srl/alias.hpp',
                                 'src/gdg/srl/exceptions.hpp',
                                'src/gdg/srl/srl.cpp',
                                'src/gdg/srl/srl.hpp'],
@@ -25,13 +25,29 @@ executable('functional-tests', ['src/gdg/srl/alias.hpp',
 
 
 
-static_library('simple_requests', ['src/gdg/srl/alias.hpp',
+simple_requests = static_library('simple_requests', ['src/gdg/srl/alias.hpp',
                                'src/gdg/srl/srl.cpp',
                                'src/gdg/srl/srl.hpp'],
-           dependencies :
-           [network_dep,
-            doctest_dep],
-           include_directories : include_directories('src'),
+                                 dependencies :
+                                 [network_dep,
+                                  doctest_dep],
+                                 include_directories : include_directories('src'),
+                                 cpp_args : ['-DUSE_' + get_option('network-library').to_upper(),
+                                '-DUSE_' + get_option('string-view-library').to_upper(),
+                                '-DDOCTEST_CONFIG_DISABLE'])
+
+
+simple_requests_dep = declare_dependency(link_with : simple_requests,
+                    include_directories : include_directories('src'),
+ compile_args : ['-DUSE_' + get_option('network-library').to_upper(),
+                 '-DUSE_' + get_option('string-view-library').to_upper(),
+                 '-DDOCTEST_CONFIG_DISABLE'],
+ dependencies : [network_dep, doctest_dep])
+
+
+executable('get_urls', 'examples/get_urls.cpp',
+           dependencies : [simple_requests_dep],
            cpp_args : ['-DUSE_' + get_option('network-library').to_upper(),
                        '-DUSE_' + get_option('string-view-library').to_upper(),
-                       '-DDOCTEST_CONFIG_DISABLE'])
+                    '-DDOCTEST_CONFIG_DISABLE'],
+           build_by_default : false)

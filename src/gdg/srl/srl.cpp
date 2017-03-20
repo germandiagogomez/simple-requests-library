@@ -3,9 +3,11 @@
 #include <unordered_map>
 #include <boost/regex.hpp>
 #include <regex>
+#include <iostream>
 
-
+#if !DOCTEST_CONFIG_DISABLE
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#endif
 #include "doctest/doctest.h"
 
 
@@ -185,10 +187,12 @@ namespace gdg {
 
 namespace srl {
 
+
 net::io_service & get_default_loop() {
     static net::io_service & svc =
         []() -> net::io_service & {
         static auto io = std::make_unique<net::io_service>();
+        static net::io_service::work work{*io};
         shared_ptr<future<void>> f = make_shared<future<void>>();
 
         *f = std::async(std::launch::async,
@@ -200,23 +204,30 @@ net::io_service & get_default_loop() {
     return svc;
 }
 
-
 future<pair<int, vector<byte_t>>> async_http_get(string_view_t host,
                                                  string_view_t resource,
-                                                 chrono::steady_clock::duration timeOut,
-                                                 net::io_service & i) {
+                                                 chrono::steady_clock::duration timeOut) {
+    return async_http_get(get_default_loop(),
+                          host, resource, timeOut);
+}
+
+
+future<pair<int, vector<byte_t>>> async_http_get(net::io_service & io,
+                                                 string_view_t host,
+                                                 string_view_t resource,
+                                                 chrono::steady_clock::duration timeOut) {
     promise<pair<int, vector<byte_t>>> result_promise;
     auto result = result_promise.get_future();
     net::spawn
-        (i,
-         [&i, hoststr=string(host), timeOut = timeOut,
+        (io,
+         [&io, hoststr=string(host), timeOut = timeOut,
           result_promise = move(result_promise), host, resource]
          (net::yield_context yield) mutable {
-            ip::tcp::socket socket(i);
+            ip::tcp::socket socket(io);
 
             try {
                 atomic<bool> timeoutReached{false};
-                net::steady_timer timer(i);
+                net::steady_timer timer(io);
                 timer.expires_from_now(timeOut);
                 timer.async_wait([&timeoutReached](auto ec) {
                         if (ec != net::error::operation_aborted) {
@@ -224,7 +235,7 @@ future<pair<int, vector<byte_t>>> async_http_get(string_view_t host,
                         }
                     });
                 ip::tcp::resolver::query q(hoststr, "http");
-                ip::tcp::resolver resolver(i);
+                ip::tcp::resolver resolver(io);
                 net::async_connect(socket, resolver.async_resolve(q, yield), yield);
                 string const request = build_request(host, resource);
 
@@ -256,7 +267,6 @@ future<pair<int, vector<byte_t>>> async_http_get(string_view_t host,
                     else
                         return false;
                 }();
-
 
                 if (readInChunks) {
                     if (timeoutReached) {
@@ -302,11 +312,11 @@ TEST_CASE("async http get without timeout") {
     net::io_service svc;
     net::io_service::work wk{svc};
     thread t([&svc] { svc.run(); });
-    CHECK_NOTHROW((async_http_get("www.publico.es", "/", 8s, svc).get()));
-    CHECK_NOTHROW((async_http_get("www.elmundo.es", "/", 8s, svc).get()));
-    auto licenseText = async_http_get("www.boost.org",
+    CHECK_NOTHROW((async_http_get(svc, "www.publico.es", "/", 8s).get()));
+    CHECK_NOTHROW((async_http_get(svc, "www.elmundo.es", "/", 8s).get()));
+    auto licenseText = async_http_get(svc, "www.boost.org",
                                       "/LICENSE_1_0.txt",
-                                      8s, svc).get();
+                                      8s).get();
     CHECK(licenseText.first == 200);
     CHECK(licenseText.second.size() == 1338);
 
@@ -319,9 +329,9 @@ TEST_CASE("async http get timeouts") {
     net::io_service::work wk{svc};
     thread t([&svc] { svc.run(); });
     CHECK_THROWS_AS(async_http_get("www.boost.org",
-                                      "/LICENSE_1_0.txt",
+                                   "/LICENSE_1_0.txt",
                                    1ms, svc).get(),
-        timeout_exception);
+                    timeout_exception);
     svc.stop();
     t.join();
 }

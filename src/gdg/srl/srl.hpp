@@ -16,7 +16,7 @@ namespace srl {
 net::io_service & get_default_loop();
 
 
-/** Gets a resource from a given host through http asynchronously.
+/** Gets a resource from a given host through http asynchronously in a given loop.
 
     @host[in] the host machine. No effort will be done to remove trailing slashes
     @resource[in] the resource
@@ -29,10 +29,19 @@ net::io_service & get_default_loop();
     @return a future with a pair status code, vector of byte_t containing the response body
  */
 std::future<std::pair<int, std::vector<byte_t>>>
+async_http_get(net::io_service & io,
+               string_view_t host,
+               string_view_t resource = "/",
+               std::chrono::steady_clock::duration timeOut = std::chrono::seconds(30));
+
+
+/**
+ * @overload
+*/
+std::future<std::pair<int, std::vector<byte_t>>>
 async_http_get(string_view_t host,
                string_view_t resource = "/",
-               std::chrono::steady_clock::duration timeOut = std::chrono::seconds(30),
-               net::io_service & io = get_default_loop());
+               std::chrono::steady_clock::duration timeOut = std::chrono::seconds(30));
 
 
 
