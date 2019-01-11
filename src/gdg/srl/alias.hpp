@@ -26,11 +26,24 @@ namespace net = asio;
 #endif
 
 #if USE_BOOST_STRING_VIEW
-#include <boost/utility/string_view.hpp>
+#include <boost/version.hpp>
+#if ((BOOST_VERSION / 100) % 1000) <= 60
+#include <boost/utility/string_ref.hpp>
+#else
+#include <boost/utility/string_ref.hpp>
+#endif
 
 namespace gdg {
 namespace srl {
-using string_view_t = boost::string_view;
+
+using string_view_t =
+#if ((BOOST_VERSION / 100) % 1000) <= 60
+                                      boost::string_ref
+#else
+boost::string_view
+#endif
+;
+
 }
 }
 #elif USE_STD_STRING_VIEW
