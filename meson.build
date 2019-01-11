@@ -17,7 +17,8 @@ executable('functional_tests', ['src/gdg/srl/alias.hpp',
                                 'src/gdg/srl/srl.hpp'],
            dependencies :
              [network_dep,
-              doctest_dep],
+              doctest_dep,
+              dependency('threads')],
            include_directories : include_directories('src'),
            cpp_args : ['-DUSE_' + get_option('network-library').to_upper(),
                        '-DUSE_' + get_option('string-view-library').to_upper()],
@@ -43,7 +44,8 @@ simple_requests_dep = declare_dependency(link_with : simple_requests,
                                          compile_args : ['-DUSE_' + get_option('network-library').to_upper(),
                                                          '-DUSE_' + get_option('string-view-library').to_upper(),
                                                          '-DDOCTEST_CONFIG_DISABLE'],
-                                         dependencies : [network_dep, doctest_dep, dependency('threads')])
+                                         dependencies : [network_dep, doctest_dep,
+                                                         dependency('threads')])
 
 
 executable('get_urls', 'examples/get_urls.cpp',

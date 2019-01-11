@@ -329,9 +329,10 @@ TEST_CASE("async http get timeouts") {
     net::io_service svc;
     net::io_service::work wk{svc};
     thread t([&svc] { svc.run(); });
-    CHECK_THROWS_AS(async_http_get("www.boost.org",
+    CHECK_THROWS_AS(async_http_get(svc,
+                                   "www.boost.org",
                                    "/LICENSE_1_0.txt",
-                                   1ms, svc).get(),
+                                   1ms).get(),
                     timeout_exception);
     svc.stop();
     t.join();
