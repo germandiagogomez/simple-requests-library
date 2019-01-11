@@ -324,6 +324,7 @@ TEST_CASE("async http get without timeout") {
     t.join();
 }
 
+
 TEST_CASE("async http get timeouts") {
     net::io_service svc;
     net::io_service::work wk{svc};

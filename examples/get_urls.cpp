@@ -27,4 +27,7 @@ int main() {
         cout << "Timeout";
         return -1;
     }
+    catch (srl::bad_request_exception const & e) {
+      std::cout << e.what() << " Error code: " << e.errorCode << std::endl;
+    }
 }
